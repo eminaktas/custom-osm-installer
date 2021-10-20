@@ -424,8 +424,7 @@ function update_manifest_files() {
         module_upper="${module^^}"
         list_of_services="$list_of_services $module"
     done
-    # TODO: Change 9 to 10 when 10 point release is on the air.
-    if [ ! "$OSM_DOCKER_TAG" == "9" ]; then
+    if [ ! "$OSM_DOCKER_TAG" == "10" ]; then
         parse_yaml $OSM_DOCKER_TAG $list_of_services
     fi
 }
