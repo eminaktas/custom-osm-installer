@@ -120,4 +120,84 @@ osm k8scluster-list
 
 Since we don't have and don't need juju, it is normal to see Error here.
 
-TODO: Add a robot test example here
+## Run a Robot test
+
+To test our environment, we will run a robot test. However, we have to disable some of the lines for the robot test since we already did some of the steps, we will see soon.
+
+Install reqired packages in the osmclient container.
+
+```bash
+pip install --ignore-installed haikunator requests pyvcloud progressbar pathlib robotframework robotframework-seleniumlibrary robotframework-requests robotframework-SSHLibrary yq
+apt-get install jq
+```
+
+Clone the tests repository and we will run a helm test. We are going to use `testsuite/k8s_11-simple_helm_k8s_scaling.robot` file. Before you run the test,
+
+- take `Add K8s Cluster To OSM`, `Remove K8s Cluster from OSM` and `Run Keyword If Any Tests Failed  Delete K8s Cluster   ${k8scluster_name}` tests to the comment line
+- change `k8scluster_name` variable value to `my-k8s` which we added our cluster with this name.
+- set the `publickey` as `${EMPTY}`. It is also not needed.
+
+If you don't apply these you might see some errors.
+
+You need to clone tests and osm-packages repositories to osmclient pod.
+
+```bash
+git clone https://osm.etsi.org/gitlab/vnf-onboarding/osm-packages.git
+git clone https://osm.etsi.org/gitlab/osm/tests.git
+```
+
+```bash
+cd tests/robot-systest
+export ROBOT_REPORT_FOLDER=robot-reports
+# This is the value we defined for dummy-vim
+export VIM_MGMT_NET=mgmt
+export VIM_TARGET=dummy-osm-vim
+# Folder path for osm-packages repository
+export PACKAGES_FOLDER=<osm-packages-path>
+# Folder path for tests/robot-systest repository
+export ROBOT_DEVOPS_FOLDER=<tests-robot-systest-path>
+# Add this variable. Unless, it prints error.
+export OSM_RSA_FILE=
+mkdir ${ROBOT_REPORT_FOLDER}
+robot -d ${ROBOT_REPORT_FOLDER} testsuite/k8s_11-simple_helm_k8s_scaling.robot
+```
+
+At the end, we have perfect result.
+
+```bash
+==============================================================================
+K8S 11-Simple Helm K8S Scaling :: [K8s-11] Simple Helm K8s Scale.
+==============================================================================
+Create Simple K8s Scale VNF Descriptor                                | PASS |
+------------------------------------------------------------------------------
+Create Simple K8s Scale NS Descriptor                                 | PASS |
+------------------------------------------------------------------------------
+Create Network Service Instance                                       | PASS |
+------------------------------------------------------------------------------
+Get Vnf Id                                                            | PASS |
+------------------------------------------------------------------------------
+Get Scale Count Before Scale Out :: Get the scale count of the app... | PASS |
+------------------------------------------------------------------------------
+Perform Manual KDU Scale Out :: Scale out the application of netwo... | PASS |
+------------------------------------------------------------------------------
+[ WARN ] Keyword 'BuiltIn.Run Keyword Unless' is deprecated.
+Check Scale Count After Scale Out :: Check whether the scale count... | PASS |
+------------------------------------------------------------------------------
+Perform Manual KDU Scale In :: Scale in the application of network... | PASS |
+------------------------------------------------------------------------------
+[ WARN ] Keyword 'BuiltIn.Run Keyword Unless' is deprecated.
+Check Scale Count After Scale In :: Check whether the scale count ... | PASS |
+------------------------------------------------------------------------------
+Delete NS K8s Instance Test                                           | PASS |
+------------------------------------------------------------------------------
+Delete NS Descriptor Test                                             | PASS |
+------------------------------------------------------------------------------
+Delete VNF Descriptor Test                                            | PASS |
+------------------------------------------------------------------------------
+K8S 11-Simple Helm K8S Scaling :: [K8s-11] Simple Helm K8s Scale.     | PASS |
+12 tests, 12 passed, 0 failed
+==============================================================================
+Output:  /tmp/tests/robot-systest/robot-reports/output.xml
+Log:     /tmp/tests/robot-systest/robot-reports/log.html
+Report:  /tmp/tests/robot-systest/robot-reports/report.html
+```
