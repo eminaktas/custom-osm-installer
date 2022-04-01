@@ -5,7 +5,7 @@
 
 USERNAME=`whoami`
 # Check if the user is the root or not, if not use sudo
-[ "$USERNAME" != "root" ] && SUDO="sudo" && echo -e "Commands are going to run with sudo"
+[ "$USERNAME" != "root" ] && SUDO="sudo"
 
 function usage() {
     echo -e "usage: $0 [OPTIONS]"
@@ -27,9 +27,13 @@ function usage() {
     echo -e "     -l <lxd-cloud>            :    LXD cloud yaml file"
     echo -e "     -L <lxd-credentials>      :    LXD credentials yaml file"
     echo -e "     --pla                     :    install the PLA module for placement support"
+    echo -e "     --nok8s                   :    do not install k8s"
     echo -e "     --nolxd                   :    do not install and configure LXD (assumes LXD is already installed and configured)"
     echo -e "     --nojuju                  :    do not install juju, assumes already installed"
-    echo -e "     --nocachelxdimages        :    do not cache local lxd images, do not create cronjob for that cache (will save installation time, might affect instantiation time)"  
+    echo -e "     --nohostclient            :    do not install osmclient"
+    echo -e "     --norequiredpackages      :    do not install '$REQUIRED_PACKAGES' packages. Use this if you have these packages already installed"
+    echo -e "     --nocachelxdimages        :    do not cache local lxd images, do not create cronjob for that cache (will save installation time, might affect instantiation time)"
+    echo -e "     --nosudo                  :    do not use sudo for commands"
     echo -e "     --deploy-charmed-services :    deploy the charmed services if this argumament not passed it will deploy it as it is"
     echo -e "     --uninstall               :    removes OSM and everything installed for it"
 }
@@ -40,8 +44,8 @@ function ask_user() {
     while true ; do
         [ -z "$USER_CONFIRMATION" ] && [ "$2" == 'y' ] && return 0
         [ -z "$USER_CONFIRMATION" ] && [ "$2" == 'n' ] && return 1
-        [ "${USER_CONFIRMATION,,}" == "yes" ] || [ "${USER_CONFIRMATION,,}" == "y" ] && return 0
-        [ "${USER_CONFIRMATION,,}" == "no" ]  || [ "${USER_CONFIRMATION,,}" == "n" ] && return 1
+        [ "${USER_CONFIRMATION:l}" == "yes" ] || [ "${USER_CONFIRMATION:l}" == "y" ] && return 0
+        [ "${USER_CONFIRMATION:l}" == "no" ]  || [ "${USER_CONFIRMATION:l}" == "n" ] && return 1
         read -e -p "Please type 'yes' or 'no': " USER_CONFIRMATION
     done
 }
@@ -215,14 +219,14 @@ function juju_createcontroller() {
 }
 
 function generate_secret() {
-    head /dev/urandom | tr -dc A-Za-z0-9 | head -c 32
+    head /dev/urandom | LC_ALL=C tr -dc A-Za-z0-9 | head -c 32
 }
 
 function generate_k8s_manifest_files() {
     #Kubernetes resources
-    $SUDO cp -bR ${OSM_DEVOPS}/installers/docker/osm_pods $OSM_DOCKER_WORK_DIR
+    $SUDO cp -R ${OSM_DEVOPS}/installers/docker/osm_pods $OSM_DOCKER_WORK_DIR
     # mongo.yaml will be removed if the mongo service is being deployed as a charmed service
-    [ -n "$DEPLOY_CHARMED_SERVICES" ] && $SUDO rm -f $OSM_K8S_WORK_DIR/mongo.yaml || $SUDO sed -i "s|mongodb-k8s|mongo|g;s|/?replicaSet=rs0||g" $OSM_K8S_WORK_DIR/lcm.yaml $OSM_K8S_WORK_DIR/mon.yaml $OSM_K8S_WORK_DIR/nbi.yaml $OSM_K8S_WORK_DIR/pol.yaml $OSM_K8S_WORK_DIR/ro.yaml
+    [ -n "$DEPLOY_CHARMED_SERVICES" ] && $SUDO rm -f $OSM_K8S_WORK_DIR/mongo.yaml || $SUDO cp ./files/mongo.yaml $OSM_K8S_WORK_DIR && $SUDO perl -pi -e "s|mongodb-k8s|mongo|g;s|/\?replicaSet=rs0||g" $OSM_K8S_WORK_DIR/lcm.yaml $OSM_K8S_WORK_DIR/mon.yaml $OSM_K8S_WORK_DIR/nbi.yaml $OSM_K8S_WORK_DIR/pol.yaml $OSM_K8S_WORK_DIR/ro.yaml
     [ "$CRI_NAME" != "docker" ] && $SUDO sed -zi "s|        volumeMounts:\n        - name: socket\n          mountPath: /var/run/docker.sock\n      volumes:\n      - name: socket\n        hostPath:\n         path: /var/run/docker.sock||g" $OSM_K8S_WORK_DIR/kafka.yaml
 }
 
@@ -239,7 +243,7 @@ function deploy_osm_services() {
 
 function deploy_osm_pla_service() {
     # corresponding to namespace_vol
-    $SUDO  sed -i "s#path: /var/lib/osm#path: $OSM_NAMESPACE_VOL#g" $OSM_DOCKER_WORK_DIR/osm_pla/pla.yaml
+    $SUDO  perl -pi -e "s#path: /var/lib/osm#path: $OSM_NAMESPACE_VOL#g" $OSM_DOCKER_WORK_DIR/osm_pla/pla.yaml
     # corresponding to deploy_osm_services
     kubectl apply -n $OSM_STACK_NAME -f $OSM_DOCKER_WORK_DIR/osm_pla
 }
@@ -264,32 +268,32 @@ function generate_docker_env_files() {
     if ! grep -Fq "OSMLCM_VCA_HOST" $OSM_DOCKER_WORK_DIR/lcm.env; then
         echo "OSMLCM_VCA_HOST=${OSM_VCA_HOST}" | $SUDO tee -a $OSM_DOCKER_WORK_DIR/lcm.env
     else
-        $SUDO sed -i "s|OSMLCM_VCA_HOST.*|OSMLCM_VCA_HOST=$OSM_VCA_HOST|g" $OSM_DOCKER_WORK_DIR/lcm.env
+        $SUDO perl -pi -e "s|OSMLCM_VCA_HOST.*|OSMLCM_VCA_HOST=$OSM_VCA_HOST|g" $OSM_DOCKER_WORK_DIR/lcm.env
     fi
 
     if ! grep -Fq "OSMLCM_VCA_SECRET" $OSM_DOCKER_WORK_DIR/lcm.env; then
         echo "OSMLCM_VCA_SECRET=${OSM_VCA_SECRET}" | $SUDO tee -a $OSM_DOCKER_WORK_DIR/lcm.env
     else
-        $SUDO sed -i "s|OSMLCM_VCA_SECRET.*|OSMLCM_VCA_SECRET=$OSM_VCA_SECRET|g" $OSM_DOCKER_WORK_DIR/lcm.env
+        $SUDO perl -pi -e "s|OSMLCM_VCA_SECRET.*|OSMLCM_VCA_SECRET=$OSM_VCA_SECRET|g" $OSM_DOCKER_WORK_DIR/lcm.env
     fi
 
     if ! grep -Fq "OSMLCM_VCA_PUBKEY" $OSM_DOCKER_WORK_DIR/lcm.env; then
         echo "OSMLCM_VCA_PUBKEY=${OSM_VCA_PUBKEY}" | $SUDO tee -a $OSM_DOCKER_WORK_DIR/lcm.env
     else
-        $SUDO sed -i "s|OSMLCM_VCA_PUBKEY.*|OSMLCM_VCA_PUBKEY=${OSM_VCA_PUBKEY}|g" $OSM_DOCKER_WORK_DIR/lcm.env
+        $SUDO perl -pi -e "s|OSMLCM_VCA_PUBKEY.*|OSMLCM_VCA_PUBKEY=${OSM_VCA_PUBKEY}|g" $OSM_DOCKER_WORK_DIR/lcm.env
     fi
 
     if ! grep -Fq "OSMLCM_VCA_CACERT" $OSM_DOCKER_WORK_DIR/lcm.env; then
         echo "OSMLCM_VCA_CACERT=${OSM_VCA_CACERT}" | $SUDO tee -a $OSM_DOCKER_WORK_DIR/lcm.env
     else
-        $SUDO sed -i "s|OSMLCM_VCA_CACERT.*|OSMLCM_VCA_CACERT=${OSM_VCA_CACERT}|g" $OSM_DOCKER_WORK_DIR/lcm.env
+        $SUDO perl -pi -e "s|OSMLCM_VCA_CACERT.*|OSMLCM_VCA_CACERT=${OSM_VCA_CACERT}|g" $OSM_DOCKER_WORK_DIR/lcm.env
     fi
 
     if [ -n "$OSM_VCA_APIPROXY" ]; then
         if ! grep -Fq "OSMLCM_VCA_APIPROXY" $OSM_DOCKER_WORK_DIR/lcm.env; then
             echo "OSMLCM_VCA_APIPROXY=${OSM_VCA_APIPROXY}" | $SUDO tee -a $OSM_DOCKER_WORK_DIR/lcm.env
         else
-            $SUDO sed -i "s|OSMLCM_VCA_APIPROXY.*|OSMLCM_VCA_APIPROXY=${OSM_VCA_APIPROXY}|g" $OSM_DOCKER_WORK_DIR/lcm.env
+            $SUDO perl -pi -e "s|OSMLCM_VCA_APIPROXY.*|OSMLCM_VCA_APIPROXY=${OSM_VCA_APIPROXY}|g" $OSM_DOCKER_WORK_DIR/lcm.env
         fi
     fi
 
@@ -304,13 +308,13 @@ function generate_docker_env_files() {
     if ! grep -Fq "OSMLCM_VCA_CLOUD" $OSM_DOCKER_WORK_DIR/lcm.env; then
         echo "OSMLCM_VCA_CLOUD=${OSM_VCA_CLOUDNAME}" | $SUDO tee -a $OSM_DOCKER_WORK_DIR/lcm.env
     else
-        $SUDO sed -i "s|OSMLCM_VCA_CLOUD.*|OSMLCM_VCA_CLOUD=${OSM_VCA_CLOUDNAME}|g" $OSM_DOCKER_WORK_DIR/lcm.env
+        $SUDO perl -pi -e "s|OSMLCM_VCA_CLOUD.*|OSMLCM_VCA_CLOUD=${OSM_VCA_CLOUDNAME}|g" $OSM_DOCKER_WORK_DIR/lcm.env
     fi
 
     if ! grep -Fq "OSMLCM_VCA_K8S_CLOUD" $OSM_DOCKER_WORK_DIR/lcm.env; then
         echo "OSMLCM_VCA_K8S_CLOUD=${OSM_VCA_K8S_CLOUDNAME}" | $SUDO tee -a $OSM_DOCKER_WORK_DIR/lcm.env
     else
-        $SUDO sed -i "s|OSMLCM_VCA_K8S_CLOUD.*|OSMLCM_VCA_K8S_CLOUD=${OSM_VCA_K8S_CLOUDNAME}|g" $OSM_DOCKER_WORK_DIR/lcm.env
+        $SUDO perl -pi -e "s|OSMLCM_VCA_K8S_CLOUD.*|OSMLCM_VCA_K8S_CLOUD=${OSM_VCA_K8S_CLOUDNAME}|g" $OSM_DOCKER_WORK_DIR/lcm.env
     fi
 
     # RO
@@ -353,25 +357,25 @@ function generate_docker_env_files() {
     if ! grep -Fq "OS_NOTIFIER_URI" $OSM_DOCKER_WORK_DIR/mon.env; then
         echo "OS_NOTIFIER_URI=http://${DEFAULT_IP}:8662" |$SUDO tee -a $OSM_DOCKER_WORK_DIR/mon.env
     else
-        $SUDO sed -i "s|OS_NOTIFIER_URI.*|OS_NOTIFIER_URI=http://$DEFAULT_IP:8662|g" $OSM_DOCKER_WORK_DIR/mon.env
+        $SUDO perl -pi -e "s|OS_NOTIFIER_URI.*|OS_NOTIFIER_URI=http://$DEFAULT_IP:8662|g" $OSM_DOCKER_WORK_DIR/mon.env
     fi
 
     if ! grep -Fq "OSMMON_VCA_HOST" $OSM_DOCKER_WORK_DIR/mon.env; then
         echo "OSMMON_VCA_HOST=${OSM_VCA_HOST}" | $SUDO tee -a $OSM_DOCKER_WORK_DIR/mon.env
     else
-        $SUDO sed -i "s|OSMMON_VCA_HOST.*|OSMMON_VCA_HOST=$OSM_VCA_HOST|g" $OSM_DOCKER_WORK_DIR/mon.env
+        $SUDO perl -pi -e "s|OSMMON_VCA_HOST.*|OSMMON_VCA_HOST=$OSM_VCA_HOST|g" $OSM_DOCKER_WORK_DIR/mon.env
     fi
 
     if ! grep -Fq "OSMMON_VCA_SECRET" $OSM_DOCKER_WORK_DIR/mon.env; then
         echo "OSMMON_VCA_SECRET=${OSM_VCA_SECRET}" | $SUDO tee -a $OSM_DOCKER_WORK_DIR/mon.env
     else
-        $SUDO sed -i "s|OSMMON_VCA_SECRET.*|OSMMON_VCA_SECRET=$OSM_VCA_SECRET|g" $OSM_DOCKER_WORK_DIR/mon.env
+        $SUDO perl -pi -e "s|OSMMON_VCA_SECRET.*|OSMMON_VCA_SECRET=$OSM_VCA_SECRET|g" $OSM_DOCKER_WORK_DIR/mon.env
     fi
 
     if ! grep -Fq "OSMMON_VCA_CACERT" $OSM_DOCKER_WORK_DIR/mon.env; then
         echo "OSMMON_VCA_CACERT=${OSM_VCA_CACERT}" | $SUDO tee -a $OSM_DOCKER_WORK_DIR/mon.env
     else
-        $SUDO sed -i "s|OSMMON_VCA_CACERT.*|OSMMON_VCA_CACERT=${OSM_VCA_CACERT}|g" $OSM_DOCKER_WORK_DIR/mon.env
+        $SUDO perl -pi -e "s|OSMMON_VCA_CACERT.*|OSMMON_VCA_CACERT=${OSM_VCA_CACERT}|g" $OSM_DOCKER_WORK_DIR/mon.env
     fi
 
 
@@ -408,23 +412,23 @@ function parse_yaml() {
         if [ "$module" == "pla" ]; then
             if [ -n "$INSTALL_PLA" ]; then
                 echo "Updating K8s manifest file from opensourcemano\/${module}:.* to ${DOCKER_USER}\/${module}:${TAG}"
-                $SUDO sed -i "s#opensourcemano/pla:.*#${DOCKER_USER}/pla:${TAG}#g" ${OSM_DOCKER_WORK_DIR}/osm_pla/pla.yaml
+                $SUDO perl -pi -e "s#opensourcemano/pla:.*#${DOCKER_USER}/pla:${TAG}#g" ${OSM_DOCKER_WORK_DIR}/osm_pla/pla.yaml
             fi
         else
             echo "Updating K8s manifest file from opensourcemano\/${module}:.* to ${DOCKER_USER}\/${module}:${TAG}"
-            $SUDO sed -i "s#opensourcemano/${module}:.*#${DOCKER_USER}/${module}:${TAG}#g" ${OSM_K8S_WORK_DIR}/${module}.yaml
+            $SUDO perl -pi -e "s#opensourcemano/${module}:.*#${DOCKER_USER}/${module}:${TAG}#g" ${OSM_K8S_WORK_DIR}/${module}.yaml
         fi
     done
 }
 
 function update_manifest_files() {
-    osm_services="nbi lcm ro pol mon ng-ui keystone pla"
+    osm_services="nbi lcm ro pol mon ng-ui keystone pla prometheus"
     list_of_services=""
     for module in $osm_services; do
-        module_upper="${module^^}"
+        module_upper="${module:u}"
         list_of_services="$list_of_services $module"
     done
-    if [ ! "$OSM_DOCKER_TAG" == "10" ]; then
+    if [ ! "$OSM_DOCKER_TAG" == "11" ]; then
         parse_yaml $OSM_DOCKER_TAG $list_of_services
     fi
 }
@@ -432,7 +436,7 @@ function update_manifest_files() {
 function namespace_vol() {
     osm_services="nbi lcm ro pol mon kafka mysql prometheus"
     for osm in $osm_services; do
-        $SUDO sed -i "s#path: /var/lib/osm#path: $OSM_NAMESPACE_VOL#g" $OSM_K8S_WORK_DIR/$osm.yaml
+        $SUDO perl -pi -e "s#path: /var/lib/osm#path: $OSM_NAMESPACE_VOL#g" $OSM_K8S_WORK_DIR/$osm.yaml
     done
 }
 
@@ -514,28 +518,28 @@ function remove_k8s_namespace() {
 
 function fix_server_host() {
     # Changes the server host from localhost to default host (ens3 ip)
-    $SUDO sed -i "s|    server: https://127.0.0.1:6443|    server: https://$DEFAULT_IP:6443|" $KUBECONFIG
+    $SUDO perl -pi -e "s|    server: https://127.0.0.1:6443|    server: https://$DEFAULT_IP:6443|" $KUBECONFIG
     echo -e "$DEFAULT_IP added to $KUBECONFIG file"
     cat $KUBECONFIG
 }
 
 function install_osm() {
-    # Installs OSM
     if [ -n "$KUBERNETES" ];
     then
-        [ -z "$ASSUME_YES" ] && ! ask_user "The installation will do the following
-        1. Install and initialize Kubernetes
-        2. Install and configure LXD
-        3. Install juju
-        as pre-requirements.
-        Do you want to proceed (Y/n)? " y && echo -e "Cancelled!" && exit 1
+        [ -z "$SUDO" ] && echo -e "Commands are going to run with sudo"
+        [ -z "$INSTALL_NOK8S" ] && echo "Install and initialize Kubernetes" || echo "Install OSM on Kubernetes (without installing Kubernetes). This assumes your current context is already set to the correct cluster."
+        [ -z "$INSTALL_NOLXD" ] && echo "Install and configure LXD" || echo "Do not install and configure LXD"
+        [ -z "$INSTALL_NOJUJU" ] && echo "Install juju" || echo "Do not install juju"
+        [ -z "$INSTALL_NOREQUIREDPACKAGES" ] && echo "Install reqiured packages: $REQUIRED_PACKAGES" || echo "Do not install reqiured packages. This asuumes you already have the packaes: $REQUIRED_PACKAGES"
+        [ -z "$ASSUME_YES" ] && ! ask_user "The installation will do the following as pre-requirements.
+        Do you want to proceed (Y/n)? " y && echo "Cancelled!" && exit 1
     else
         [ -z "$ASSUME_YES" ] && ! ask_user "This installation supports only Kubernetes installation at the moment. New installation methods need to be discussed (Y/n)? " y && echo -e "Cancelled!" && exit 1
         exit 1
     fi
     echo -e "Installing OSM"
 
-    get_default_if_ip_mtu
+    [ -z "$INSTALL_NOK8S" ] && get_default_if_ip_mtu || DEFAULT_IP=`kubectl get nodes -o wide | awk  'FNR==2 {print $6}'`
 
     # if no host is passed in, we need to install lxd/juju, unless explicilty asked not to
     [ -z "$OSM_VCA_HOST" ] && [ -z "$INSTALL_NOLXD" ] && [ -z "$LXD_CLOUD_FILE" ] && install_lxd
@@ -547,20 +551,25 @@ function install_osm() {
     # Call single node K8s cluster installer
     if [ -n "$KUBERNETES" ];
     then
-        echo -e "k8s-cluster-installer.sh is going to set up a single node Kubernetes cluster"
-        ./k8s-cluster-installer.sh -y -n osm-machine -c $CRI_NAME -P 80-32767 \
-            --enable-ranchersc --enable-metallb
-        # Adding the kubeconfig file location as env
-        source ./adminconf.sh
-        if [ -n "$INSTALL_K8S_MONITOR" ];
+        if [ -z "$INSTALL_NOK8S" ];
         then
-            # uninstall OSM MONITORING
-            uninstall_k8s_monitoring
+            echo -e "k8s-cluster-installer.sh is going to set up a single node Kubernetes cluster"
+            ./k8s-cluster-installer.sh -y -n osm-machine -c $CRI_NAME -P 80-32767 \
+                --enable-ranchersc --enable-metallb
+            # Adding the kubeconfig file location as env
+            source ./adminconf.sh
+            if [ -n "$INSTALL_K8S_MONITOR" ];
+            then
+                # uninstall OSM MONITORING
+                uninstall_k8s_monitoring
+            fi
+            # Remove old namespace
+            remove_k8s_namespace $OSM_STACK_NAME
+        else
+            echo "Skipping Kubernetes installation"
         fi
-        # Remove old namespace
-        remove_k8s_namespace $OSM_STACK_NAME
     else
-        echo -e "Only K8s installation is supported at the moment"
+        echo "Only K8s installation is supported at the moment"
         exit 1
     fi
 
@@ -673,7 +682,7 @@ function install_osm() {
         # echo -e "Check OSM status with: docker service ls; docker stack ps ${OSM_STACK_NAME}"
     fi
 
-    [ -n "$KUBERNETES" ] && add_local_k8scluster
+    [ -n "$KUBERNETES" ] && [ -z "$INSTALL_NOK8S" ] && add_local_k8scluster
 }
 
 function remove_volumes() {
@@ -759,8 +768,11 @@ REPOSITORY="stable"
 INSTALL_PLA=""
 INSTALL_NOLXD=""
 INSTALL_NOJUJU=""
+INSTALL_NOK8S=""
 INSTALL_NOHOSTCLIENT=""
 INSTALL_NOCACHELXDIMAGES=""
+INSTALL_NOREQUIREDPACKAGES=""
+INSTALL_NODEVOPS=""
 DEPLOY_CHARMED_SERVICES=""
 JUJU_AGENT_VERSION_M=2.8
 JUJU_AGENT_VERSION_R=6
@@ -828,6 +840,7 @@ while getopts ":c:H:k:r:R:u:D:t:n:O:K:l:L:-: hy" o; do
             ;;
         D)
             OSM_DEVOPS="${OPTARG}"
+            INSTALL_NODEVOPS="y"
             ;;
         t)
             OSM_DOCKER_TAG="${OPTARG}"
@@ -845,9 +858,13 @@ while getopts ":c:H:k:r:R:u:D:t:n:O:K:l:L:-: hy" o; do
         -)
             [ "${OPTARG}" == "help" ] && usage && exit 0
             [ "${OPTARG}" == "yes" ] && ASSUME_YES="y" && continue
+            [ "${OPTARG}" == "nok8s" ] && INSTALL_NOK8S="y" && continue
             [ "${OPTARG}" == "nolxd" ] && INSTALL_NOLXD="y" && continue
             [ "${OPTARG}" == "nojuju" ] && INSTALL_NOJUJU="y" && continue
             [ "${OPTARG}" == "nocachelxdimages" ] && INSTALL_NOCACHELXDIMAGES="y" && continue
+            [ "${OPTARG}" == "norequiredpackages" ] && INSTALL_NOREQUIREDPACKAGES="y" && continue
+            [ "${OPTARG}" == "nosudo" ] && SUDO="" && continue
+            [ "${OPTARG}" == "nohostclient" ] && INSTALL_NOHOSTCLIENT="y" && continue
             [ "${OPTARG}" == "pla" ] && INSTALL_PLA="y" && continue
             [ "${OPTARG}" == "deploy-charmed-services " ] && DEPLOY_CHARMED_SERVICES="y" && continue
             [ "${OPTARG}" == "uninstall" ] && UNINSTALL="y" && continue
@@ -878,14 +895,15 @@ done
 [ "$UNINSTALL" == "y" ] && uninstall_osm && echo -e "DONE" && exit 0
 
 # The required packages is going be left to the osm-machine
-install_required_packages
+[ -z "$INSTALL_NOREQUIREDPACKAGES" ] && install_required_packages
 
 # OSM devops repository
-add_repo "deb [arch=amd64] $REPOSITORY_BASE/$RELEASE $REPOSITORY devops"
-
-$SUDO apt-get -y -q update
-$SUDO apt-get install -y osm-devops
-
+if [ -z "$INSTALL_NODEVOPS" ];
+then
+    add_repo "deb [arch=amd64] $REPOSITORY_BASE/$RELEASE $REPOSITORY devops"
+    $SUDO apt-get -y -q update
+    $SUDO apt-get install -y osm-devops
+fi
 [ "${OSM_STACK_NAME}" == "osm" ] || OSM_DOCKER_WORK_DIR="$OSM_WORK_DIR/stack/$OSM_STACK_NAME"
 [ -n "$KUBERNETES" ] && OSM_K8S_WORK_DIR="$OSM_DOCKER_WORK_DIR/osm_pods" && OSM_NAMESPACE_VOL="${OSM_HOST_VOL}/${OSM_STACK_NAME}"
 
