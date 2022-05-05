@@ -1,0 +1,39 @@
+dependencies:
+- name: keystone
+  repository: ""
+  version: 0.1.0
+- name: lcm
+  repository: ""
+  version: 0.1.0
+- name: mon
+  repository: ""
+  version: 0.1.0
+- name: nbi
+  repository: ""
+  version: 0.1.0
+- name: ng-ui
+  repository: ""
+  version: 0.1.0
+- name: pol
+  repository: ""
+  version: 0.1.0
+- name: ro
+  repository: ""
+  version: 0.1.0
+- name: grafana
+  repository: https://grafana.github.io/helm-charts
+  version: 6.28.0
+- name: prometheus
+  repository: https://prometheus-community.github.io/helm-charts
+  version: 15.8.5
+- name: kafka
+  repository: https://charts.bitnami.com/bitnami
+  version: 16.2.10
+- name: mysql
+  repository: https://charts.bitnami.com/bitnami
+  version: 8.9.6
+- name: mongodb
+  repository: https://charts.bitnami.com/bitnami
+  version: 12.0.0
+digest: sha256:55296042a03f63116f0642b4a04fb377f8447abc2844a3c6b3f6193fe2b604e3
+generated: "2022-05-04T23:19:06.560274+03:00"

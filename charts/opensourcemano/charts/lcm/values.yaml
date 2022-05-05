@@ -1,0 +1,105 @@
+# Default values for lcm.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+global:
+  imagePullSecrets: []
+
+  database:
+    driver: mongo
+    host: mongo
+    port: 27017
+    uri: mongodb://mongo:27017
+    commonKey: ""
+
+  message:
+    driver: kafka
+    host: kafka
+    port: 9092
+
+  storage:
+    driver: local
+    path: /app/storage
+    # host: mongodb
+    # port: 27017
+    # uri: mongodb://mongo:27017
+    # collection: files
+
+  # Add the neccesary information for your pre-installed VCA(Juju).
+  vca:
+    host: vca
+    port: 17070
+    user: admin
+    secret: secret
+    # pubKey: ""
+    # cacert: ""
+    # apiProxy: ""
+    # enableOsUpgrade: false
+    # aptMirror: http://archive.ubuntu.com/ubuntu/
+
+ro:
+  host: ro
+  port: 9090
+  tenant: osm
+
+# Do not touch unless you are using custom container image.
+k8s: {}
+#   helmPath: /usr/local/bin/helm
+#   kubectlPath: /usr/bin/kubectl
+#   jujuPath: /usr/local/bin/juju
+
+helm: {}
+  # stableRepoUrl: https://charts.helm.sh/stable
+  # caCerts: ""
+
+log: {}
+  # logFile: /app/log/lcm.log
+  # logLevel: DEBUG
+
+replicaCount: 1
+
+image:
+  repository: opensourcemano/lcm
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: false
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  fsGroup: 1000
+
+securityContext:
+  runAsUser: 1000
+  runAsGroup: 1000
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+
+resources: {}
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

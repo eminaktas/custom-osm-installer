@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mon.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+  {{- include "mon.labels" . | nindent 4 }}
+{{- with .Values.podAnnotations }}
+annotations:
+{{- toYaml . | nindent 8 }}
+{{- end }}
+data:
+  # database
+  OSMMON_DATABASE_HOST: "{{ .Values.global.database.host }}"
+  OSMMON_DATABASE_PORT: "{{ .Values.global.database.port }}"
+  OSMMON_DATABASE_DRIVER: "{{ .Values.global.database.driver }}"
+  OSMMON_DATABASE_URI: "{{ .Values.global.database.uri }}"
+  # message
+  OSMMON_MESSAGE_HOST: "{{ .Values.global.message.host }}"
+  OSMMON_MESSAGE_PORT: "{{ .Values.global.message.port }}"
+  OSMMON_MESSAGE_DRIVER: "{{ .Values.global.message.driver }}"
+  # sql
+  OSMMON_SQL_DATABASE_URI: "{{ .Values.global.sqlUri }}"
+  # vca
+  OSMMON_VCA_HOST: "{{ .Values.global.vca.host }}"
+  {{- if .Values.global.vca.apiProxy }}
+  OSMMON_VCA_APIPROXY: "{{ .Values.global.vca.apiProxy }}"
+  {{- end }}
+  {{- if .Values.global.vca.enableOsUpgrade }}
+  OSMMON_VCA_ENABLEOSUPGRADE: "{{ .Values.global.vca.enableOsUpgrade }}"
+  {{- end }}
+  {{- if .Values.global.vca.aptMirror }}
+  OSMMON_VCA_APTMIRROR: "{{ .Values.global.vca.aptMirror }}"
+  {{- end }}
+  # mon
+  OSMMON_OPENSTACK_DEFAULT_GRANULARITY: "{{ .Values.openstackDefaultGranularity }}"
+  OSMMON_COLLECTOR_INTERVAL: "{{ .Values.collectorInterval }}"
+  OSMMON_EVALUATOR_INTERVAL: "{{ .Values.evaluatorInterval }}"
+  OSMMON_GLOBAL_LOGLEVEL: "{{ .Values.logLevel }}"
+  OSMMON_GLOBAL_REQUEST_TIMEOUT: "{{ .Values.requestTimeout }}"
+  # prometheus
+  OSMMON_PROMETHEUS_URL: "{{ .Values.global.prometheus.protocol }}://{{ .Values.global.prometheus.host }}:{{ .Values.global.prometheus.port }}"
+  # grafana
+  OSMMON_GRAFANA_URL: "{{ .Values.grafana.protocol }}://{{ .Values.grafana.host }}:{{ .Values.grafana.port }}"

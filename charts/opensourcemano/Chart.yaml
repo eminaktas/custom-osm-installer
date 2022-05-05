@@ -1,0 +1,58 @@
+apiVersion: v2
+name: opensourcemano
+description: A Helm chart for Kubernetes
+type: application
+
+# This is the chart version. This version number should be incremented each time you make changes
+# to the chart and its templates, including the app version.
+# Versions are expected to follow Semantic Versioning (https://semver.org/)
+version: 0.1.0
+
+# This is the version number of the application being deployed. This version number should be
+# incremented each time you make changes to the application. Versions are not expected to
+# follow Semantic Versioning. They should reflect the version the application is using.
+# It is recommended to use it with quotes.
+appVersion: "11"
+
+dependencies:
+- name: keystone
+  version: 0.1.0
+  condition: keystone.enabled
+- name: lcm
+  version: 0.1.0
+  condition: lcm.enabled
+- name: mon
+  version: 0.1.0
+  condition: mon.enabled
+- name: nbi
+  version: 0.1.0
+  condition: nbi.enabled
+- name: ng-ui
+  version: 0.1.0
+  condition: ng-ui.enabled
+- name: pol
+  version: 0.1.0
+  condition: nbi.enabled
+- name: ro
+  version: 0.1.0
+  condition: ro.enabled
+- name: grafana
+  version: 6.28.0
+  condition: grafana.enabled
+  repository: https://grafana.github.io/helm-charts
+- name: prometheus
+  version: 15.8.5
+  condition: prometheus.enabled
+  repository: https://prometheus-community.github.io/helm-charts
+- name: kafka
+  version: 16.2.10
+  condition: kafka.enabled
+  repository: https://charts.bitnami.com/bitnami
+- name: mysql
+  version: 8.9.6
+  condition: mysql.enabled
+  repository: https://charts.bitnami.com/bitnami
+- name: mongodb
+  version: 12.0.0
+  condition: mongodb.enabled
+  repository: https://charts.bitnami.com/bitnami

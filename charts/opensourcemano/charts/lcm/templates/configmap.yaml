@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "lcm.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+  {{- include "lcm.labels" . | nindent 4 }}
+{{- with .Values.podAnnotations }}
+annotations:
+{{- toYaml . | nindent 8 }}
+{{- end }}
+data:
+  # ro
+  OSMLCM_RO_HOST: "{{ .Values.ro.host }}"
+  OSMLCM_RO_PORT: "{{ .Values.ro.port }}"
+  OSMLCM_RO_TENANT: "{{ .Values.ro.tenant }}"
+  # database
+  OSMLCM_DATABASE_HOST: "{{ .Values.global.database.host }}"
+  OSMLCM_DATABASE_PORT: "{{ .Values.global.database.port }}"
+  OSMLCM_DATABASE_DRIVER: "{{ .Values.global.database.driver }}"
+  OSMLCM_DATABASE_URI: "{{ .Values.global.database.uri }}"
+  # message
+  OSMLCM_MESSAGE_HOST: "{{ .Values.global.message.host }}"
+  OSMLCM_MESSAGE_PORT: "{{ .Values.global.message.port }}"
+  OSMLCM_MESSAGE_DRIVER: "{{ .Values.global.message.driver }}"
+  # storage
+  OSMLCM_STORAGE_DRIVER: "{{ .Values.global.storage.driver }}"
+  OSMLCM_STORAGE_PATH: "{{ .Values.global.storage.path }}"
+  {{- if .Values.global.storage.host }}
+  OSMLCM_STORAGE_HOST: "{{ .Values.global.storage.host }}"
+  {{- end }}
+  {{- if .Values.global.storage.port }}
+  OSMLCM_STORAGE_PORT: "{{ .Values.global.storage.port }}"
+  {{- end }}
+  {{- if .Values.global.storage.collection }}
+  OSMLCM_STORAGE_COLLECTION: "{{ .Values.global.storage.collection }}"
+  {{- end }}
+  {{- if .Values.global.storage.uri }}
+  OSMLCM_STORAGE_URI: "{{ .Values.global.storage.uri }}"
+  {{- end }}
+  # vca
+  OSMLCM_VCA_HOST: "{{ .Values.global.vca.host }}"
+  OSMLCM_VCA_PORT: "{{ .Values.global.vca.port }}"
+  {{- if .Values.global.vca.apiProxy }}
+  OSMLCM_VCA_APIPROXY: "{{ .Values.global.vca.apiProxy }}"
+  {{- end }}
+  {{- if .Values.global.vca.apiProxy }}
+  OSMLCM_VCA_ENABLEOSUPGRADE: "{{ .Values.global.vca.enableOsUpgrade }}"
+  {{- end }}
+  {{- if .Values.global.vca.aptMirror }}
+  OSMLCM_VCA_APTMIRROR: "{{ .Values.global.vca.aptMirror }}"
+  {{- end }}
+  {{- if .Values.k8s }}
+  # k8s
+  {{- if .Values.k8s.helmPath }}
+  OSMLCM_VCA_HELMPATH: "{{ .Values.k8s.helmPath }}"
+  {{- end }}
+  {{- if .Values.k8s.kubectlPath }}
+  OSMLCM_VCA_KUBECTLPATH: "{{ .Values.k8s.kubectlPath }}"
+  {{- end }}
+  {{- if .Values.k8s.jujuPath }}
+  OSMLCM_VCA_JUJUPATH: "{{ .Values.k8s.jujuPath }}"
+  {{- end }}
+  {{- end }}
+  {{- if .Values.helm }}
+  # helm
+  {{- if .Values.helm.stableRepoUrl }}
+  OSMLCM_VCA_STABLEREPOURL: "{{ .Values.helm.stableRepoUrl }}"
+  {{- end }}
+  {{- end }}
+  {{- if .Values.helm.caCerts }}
+  OSMLCM_VCA_HELM_CA_CERTS: "{{ .Values.helm.caCerts }}"
+  {{- end }}
+  {{- if .Values.log }}
+  # log
+  {{- if .Values.log.logFile }}
+  OSMLCM_GLOBAL_LOGFILE: "{{ .Values.log.logFile }}"
+  {{- end }}
+  {{- if .Values.log.logLevel }}
+  OSMLCM_GLOBAL_LOGLEVEL: "{{ .Values.log.logLevel }}"
+  {{- end }}
+  {{- end }}

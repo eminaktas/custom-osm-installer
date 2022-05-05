@@ -13,3 +13,37 @@ This repository is to create a custom OSM and Kubernetes installers. Aim is to h
 ## Known issues
 
 * Kubespray cannot install K8s cluster with floating ip access when you want different network for cluster.
+
+## Helm Chart
+
+```bash
+helm upgrade --install helm-osm -n osm --create-namespace .
+# Remove all pods (when pods are stuck)
+kubectl delete pod --grace-period=0 --force $(k get pods | awk 'NR>1 {print $1}')
+```
+
+```yaml
+{{ printf "%s%s" (include "kafka.zookeeper.fullname" .)) (tpl .Values.zookeeperChrootPath .)) | quote }}
+```
+
+### StorageClass
+
+```bash
+helm repo add openebs https://openebs.github.io/charts
+helm repo update
+helm upgrade --install openebs openebs/openebs -n openebs --create-namespace \
+    --set legacy.enabled=false \
+    --set ndm.enabled=false \
+    --set localprovisioner.deviceClass.enabled=false \
+    --set ndmOperator.enabled=false \
+    --wait
+kubectl patch storageclass openebs-hostpath -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+```
+
+```bash
+# Test mysql
+# Ref: ref: https://dev.to/musolemasu/deploy-a-mysql-database-server-in-kubernetes-static-dpc
+kubectl run -it --rm --image=mysql:8.0 --restart=Never mysql-client -- mysql -h mysql -password="password"
+mysql> SHOW DATABASES;
+mysql> SHOW GRANTS FOR 'www'@'localhost';
+```

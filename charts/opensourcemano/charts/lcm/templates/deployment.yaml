@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "lcm.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "lcm.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "lcm.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "lcm.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "lcm.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+       - name: ro-message-database-storage-connection-test
+         image: alpine:latest
+         command: ["sh", "-c", "until (nc -zvw1 {{ .Values.global.message.host }} {{ .Values.global.message.port }} && nc -zvw1 {{ .Values.ro.host }} {{ .Values.ro.port }} && nc -zvw1 {{ .Values.global.database.host }} {{ .Values.global.database.port }} {{- if and .Values.global.storage.host .Values.global.storage.port }}&& nc -zvw1 {{ .Values.global.storage.host }} {{ .Values.global.storage.port }} {{- end }}); do sleep 3; done; exit 0"]
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          envFrom:
+          - configMapRef:
+              name: {{ include "lcm.fullname" . }}
+          - secretRef:
+              name: {{ include "lcm.fullname" . }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+        {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

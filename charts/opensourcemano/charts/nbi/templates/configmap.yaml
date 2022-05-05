@@ -1,0 +1,55 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nbi.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+  {{- include "nbi.labels" . | nindent 4 }}
+{{- with .Values.podAnnotations }}
+annotations:
+{{- toYaml . | nindent 8 }}
+{{- end }}
+data:
+  # database
+  OSMNBI_DATABASE_HOST: "{{ .Values.global.database.host }}"
+  OSMNBI_DATABASE_PORT: "{{ .Values.global.database.port }}"
+  OSMNBI_DATABASE_DRIVER: "{{ .Values.global.database.driver }}"
+  OSMNBI_DATABASE_URI: "{{ .Values.global.database.uri }}"
+  # message
+  OSMNBI_MESSAGE_HOST: "{{ .Values.global.message.host }}"
+  OSMNBI_MESSAGE_PORT: "{{ .Values.global.message.port }}"
+  OSMNBI_MESSAGE_DRIVER: "{{ .Values.global.message.driver }}"
+  # storage
+  OSMNBI_STORAGE_DRIVER: "{{ .Values.global.storage.driver }}"
+  OSMNBI_STORAGE_PATH: "{{ .Values.global.storage.path }}"
+  {{- if .Values.global.storage.host }}
+  OSMNBI_STORAGE_HOST: "{{ .Values.global.storage.host }}"
+  {{- end }}
+  {{- if .Values.global.storage.port }}
+  OSMNBI_STORAGE_PORT: "{{ .Values.global.storage.port }}"
+  {{- end }}
+  {{- if .Values.global.storage.collection }}
+  OSMNBI_STORAGE_COLLECTION: "{{ .Values.global.storage.collection }}"
+  {{- end }}
+  {{- if .Values.global.storage.uri }}
+  OSMNBI_STORAGE_URI: "{{ .Values.global.storage.uri }}"
+  {{- end }}
+  # log
+  OSMNBI_LOGFILE: "{{ .Values.logFile }}"
+  OSMNBI_LOGLEVEL: "{{ .Values.logLevel }}"
+  # prometheus
+  OSMNBI_PROMETHEUS_HOST: "{{ .Values.global.prometheus.host }}"
+  OSMNBI_PROMETHEUS_PORT: "{{ .Values.global.prometheus.port }}"
+  # authentication
+  OSMNBI_AUTHENTICATION_BACKEND: "{{ .Values.global.nbiAuth.backend }}"
+  {{- if .Values.global.nbiAuth.authURL }}
+  OSMNBI_AUTHENTICATION_AUTH_URL: "{{ .Values.global.nbiAuth.authURL }}"
+  {{- end }}
+  {{- if .Values.global.nbiAuth.authPort }}
+  OSMNBI_AUTHENTICATION_AUTH_PORT: "{{ .Values.global.nbiAuth.authPort }}"
+  {{- end }}
+  # server
+  OSMNBI_SOCKET_HOST: "{{ .Values.server.socketHost }}"
+  OSMNBI_SOCKET_PORT: "{{ .Values.server.socketPort }}"
+  # web
+  OSMNBI_STATIC_DIR: "{{ .Values.web.staticDir }}"

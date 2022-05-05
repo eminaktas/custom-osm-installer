@@ -1,0 +1,286 @@
+# Default values for opensourcemano.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# TODO: Add a if to not use random pass generating if a rootPassword is given.
+generatedRootPassword: changeme-1
+servicePassword: changeme-2
+
+global:
+  imagePullSecrets: []
+
+  database:
+    driver: mongo
+    host: mongo
+    port: 27017
+    uri: mongodb://mongo:27017/?replicaSet=rs0
+    commonKey: changeme
+
+  message:
+    driver: kafka
+    host: kafka
+    port: 9092
+
+  storage:
+    driver: local
+    path: /app/storage
+    # host: mongodb
+    # port: 27017
+    # uri: mongodb://mongo:27017/?replicaSet=rs0
+    # collection: files
+
+  # Add the neccesary information for your pre-installed VCA(Juju).
+  vca:
+    host: vca
+    port: 17070
+    user: admin
+    secret: secret
+    # pubKey: ""
+    # cacert: ""
+    # apiProxy: ""
+    # enableOsUpgrade: false
+    # aptMirror: http://archive.ubuntu.com/ubuntu/
+
+keystone:
+  enabled: true
+  fullnameOverride: keystone
+  replicaCount: 1
+  servicePassword: changeme-2
+  database:
+    host: mysql
+    keystonePassword: changeme
+    rootPassword: changeme-1
+
+lcm:
+  enabled: true
+  fullnameOverride: lcm
+  replicaCount: 1
+
+mon:
+  enabled: true
+  fullnameOverride: mon
+  replicaCount: 1
+
+nbi:
+  enabled: true
+  fullnameOverride: nbi
+  replicaCount: 1
+  nbiAuth:
+    servicePassword: changeme-2
+  service:
+    type: NodePort
+    port: 9999
+    # nodePort: 9999
+
+ng-ui:
+  enabled: true
+  fullnameOverride: ng-ui
+  replicaCount: 1
+  service:
+    type: NodePort
+    port: 80
+    # nodePort: 80
+
+pol:
+  enabled: true
+  fullnameOverride: pol
+  replicaCount: 1
+
+ro:
+  enabled: true
+  fullnameOverride: ro
+  replicaCount: 1
+  host: ro
+  port: 9090
+  tenant: osm
+  databaseRootPassword: changeme-1
+
+grafana:
+  enabled: true
+  replicas: 1
+
+  service:
+    type: NodePort
+    port: 3000
+    # nodePort: 3000
+
+  fullnameOverride: grafana
+
+  extraVolumeMounts:
+    - name: sc-dashboard-volume-k8s
+      mountPath: "/var/lib/grafana/dashboards/Kubernetes Cluster"
+    - name: sc-dashboard-volume-osm
+      mountPath: "/var/lib/grafana/dashboards/Open Source MANO"
+
+  rbac:
+    create: true
+    pspEnabled: false
+
+  adminUser: admin
+  adminPassword: admin
+
+  dashboardProviders:
+    provider.yaml:
+      apiVersion: 1
+      providers:
+      - name: 'Kubernetes Cluster'
+        orgId: 1
+        folder: 'Kubernetes Cluster'
+        type: file
+        disableDeletion: false
+        options:
+          path: '/var/lib/grafana/dashboards/Kubernetes Cluster'
+      - name: 'Open Source MANO'
+        orgId: 1
+        folder: 'Open Source MANO'
+        type: file
+        disableDeletion: false
+        options:
+          path: '/var/lib/grafana/dashboards/Open Source MANO'
+
+  datasources:
+    datasource.yaml:
+      apiVersion: 1
+      datasources:
+      - name: osm_prometheus
+        type: prometheus
+        url: http://prometheus:9090
+        access: proxy
+        allowUiUpdates: true
+        isDefault: true
+
+prometheus:
+  enabled: true
+
+  alertmanager:
+    enabled: false
+
+  kubeStateMetrics:
+    enabled: false
+
+  nodeExporter:
+    enabled: false
+
+  pushgateway:
+    enabled: false
+
+  server:
+    enabled: true
+
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+
+    fullnameOverride: prometheus
+
+    service:
+      servicePort: 9090
+      type: NodePort
+      # nodePort: 9091
+
+    persistentVolume:
+      enabled: false
+
+    extraFlags:
+      - web.enable-lifecycle
+
+    sidecarTemplateValues:
+      image: opensourcemano/prometheus
+      imagePullPolicy: IfNotPresent
+      tag: 11
+      databaseUrl: mongodb://mongo:27017/?replicaSet=rs0
+      prometheusConfigFile: /etc/prometheus/prometheus.yml
+      targetDatabase: osm
+      prometheusUrl: http://0.0.0.0:9090
+    sidecarContainers:
+      prometheus-config-sidecar: |- 
+        image: {{ .Values.server.sidecarTemplateValues.image }}:{{ .Values.server.sidecarTemplateValues.tag }}
+        env:
+          - name: MONGODB_URL
+            value: "{{ .Values.server.sidecarTemplateValues.databaseUrl }}"
+          - name: PROMETHEUS_CONFIG_FILE
+            value: "{{ .Values.server.sidecarTemplateValues.prometheusConfigFile }}"
+          - name: TARGET_DATABASE
+            value: "{{ .Values.server.sidecarTemplateValues.targetDatabase }}"
+          - name: PROMETHEUS_URL
+            value: "{{ .Values.server.sidecarTemplateValues.prometheusUrl }}"
+        volumeMounts:
+        - name: prom-config
+          mountPath: /etc/prometheus
+          readOnly: false
+
+    extraInitContainers:
+    - name: prometheus-init-config
+      image: busybox
+      imagePullPolicy: IfNotPresent
+      command: ["/bin/sh", "-c"]
+      args: ['if [ ! -f "/etc/prometheus/prometheus.yml" ]; then cp /etc/config/prometheus.yml /etc/prometheus; fi']
+      # command: ["sh", "-c", "cp /etc/config/prometheus.yml /etc/prometheus/prometheus.yml && chmod 777 /etc/prometheus/prometheus.yml"]
+      volumeMounts:
+        - name: prom-config
+          mountPath: /etc/prometheus
+          readOnly: false
+        - name: config-volume
+          mountPath: /etc/config
+
+    extraVolumes:
+      - name: prom-config
+        emptyDir: {}
+
+    extraVolumeMounts:
+      - name: prom-config
+        mountPath: /etc/prometheus
+        readOnly: false
+
+    configPath: /etc/prometheus/prometheus.yml
+
+  serverFiles:
+    prometheus.yml:
+      rule_files: []
+      scrape_configs:
+        - job_name: mon_exporter
+          static_configs:
+            - targets:
+              - mon:8000
+
+  configmapReload:
+    prometheus:
+      enabled: false
+
+kafka:
+  enabled: true
+  replicaCount: 1
+  # advertisedListeners:
+  #   - PLAINTEXT://kafka.osm:9092
+  # listeners:
+  #   - PLAINTEXT://:9092
+  # interBrokerListenerName: PLAINTEXT
+  # offsetsTopicReplicationFactor: 1
+  # minBrokerId: 1
+  logRetentionHours: 24
+  fullnameOverride: kafka
+
+  zookeeper:
+    fullnameOverride: zookeeper
+
+mysql:
+  enabled: true
+  auth:
+    rootPassword: changeme-1
+    database: keystone
+    username: keystone
+    password: changeme
+  fullnameOverride: mysql
+
+mongodb:
+  enabled: true
+  replicaCount: 1
+  # Architecture must be replicaset since some components reqiures it.
+  architecture: replicaset
+  arbiter:
+    enabled: false
+  auth:
+    enabled: false
+  service:
+    nameOverride: mongo
+  fullnameOverride: mongo
